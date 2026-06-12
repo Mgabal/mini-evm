@@ -1,12 +1,16 @@
 class EVM:
-    def __init__(self, bytecode: bytes, calldata: bytes = b""):
+    def __init__(self, bytecode: bytes, calldata: bytes = b"", 
+         caller: int = 0, origin: int = 0, value: int = 0):
         self.bytecode = bytecode
         self.calldata = calldata
         self.stack = []
         self.memory = bytearray()
         self.storage = {}
-        self.pc = 0  # program counter
+        self.pc = 0
         self.stopped = False
+        self.caller = caller    # msg.sender
+        self.origin = origin    # tx.origin
+        self.value = value      # msg.value
 
     def push(self, value: int):
         self.stack.append(value)
@@ -107,7 +111,30 @@ class EVM:
 
         # JUMPDEST
         elif opcode == 0x5B:
-            pass  # just marks a valid jump destination, does nothing itself    
+            pass  # just marks a valid jump destination, does nothing itself  
+
+        # CALLER (msg.sender)
+        elif opcode == 0x33:
+            self.push(self.caller)
+
+        # ORIGIN (tx.origin)
+        elif opcode == 0x32:
+            self.push(self.origin)
+
+        # CALLVALUE (msg.value)
+        elif opcode == 0x34:
+            self.push(self.value)
+
+        # CALLDATALOAD
+        elif opcode == 0x35:
+            offset = self.pop()
+            data = self.calldata[offset:offset + 32]
+            padded = data.ljust(32, b"\x00")
+            self.push(int.from_bytes(padded, "big"))
+
+        # CALLDATASIZE
+        elif opcode == 0x36:
+            self.push(len(self.calldata))  
 
         else:
             raise Exception(f"Unknown opcode: {hex(opcode)} at pc={self.pc - 1}")
