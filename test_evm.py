@@ -140,7 +140,55 @@ class TestEVM(unittest.TestCase):
         ])
         evm = EVM(bytecode)
         with self.assertRaises(Exception):
-            evm.run()    
+            evm.run()
+
+    def test_caller(self):
+        # CALLER should push msg.sender onto stack
+        bytecode = bytes([0x33, 0x00])  # CALLER, STOP
+        evm = EVM(bytecode, caller=0xDEADBEEF)
+        evm.run()
+        self.assertEqual(evm.stack[0], 0xDEADBEEF)
+
+    def test_origin(self):
+        # ORIGIN should push tx.origin onto stack
+        bytecode = bytes([0x32, 0x00])  # ORIGIN, STOP
+        evm = EVM(bytecode, origin=0xCAFEBABE)
+        evm.run()
+        self.assertEqual(evm.stack[0], 0xCAFEBABE)
+
+    def test_callvalue(self):
+        # CALLVALUE should push msg.value onto stack
+        bytecode = bytes([0x34, 0x00])  # CALLVALUE, STOP
+        evm = EVM(bytecode, value=1000)
+        evm.run()
+        self.assertEqual(evm.stack[0], 1000)
+
+    def test_caller_vs_origin_attack(self):
+        bytecode = bytes([0x32, 0x33, 0x00])  # ORIGIN, CALLER, STOP
+        user = 0xAAAA
+        attacker_contract = 0xBBBB
+        evm = EVM(bytecode, caller=attacker_contract, origin=user)
+        evm.run()
+        # stack[0] is bottom (ORIGIN pushed first)
+        # stack[1] is top (CALLER pushed second)
+        self.assertEqual(evm.stack[0], user)               # ORIGIN at bottom
+        self.assertEqual(evm.stack[1], attacker_contract)  # CALLER on top
+        # if contract uses ORIGIN for auth, attacker bypasses it
+
+    def test_calldataload(self):
+        # load first 32 bytes of calldata
+        calldata = (42).to_bytes(32, "big")
+        bytecode = bytes([0x60, 0x00, 0x35, 0x00])  # PUSH1 0, CALLDATALOAD, STOP
+        evm = EVM(bytecode, calldata=calldata)
+        evm.run()
+        self.assertEqual(evm.stack[0], 42)
+
+    def test_calldatasize(self):
+        calldata = b"\x00" * 64
+        bytecode = bytes([0x36, 0x00])  # CALLDATASIZE, STOP
+        evm = EVM(bytecode, calldata=calldata)
+        evm.run()
+        self.assertEqual(evm.stack[0], 64)            
 
 if __name__ == "__main__":
     unittest.main()
