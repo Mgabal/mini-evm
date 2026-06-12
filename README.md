@@ -9,11 +9,17 @@ This is not a tutorial project. It is a ground-up implementation of the EVM exec
 ## Architecture
 
 The EVM is a stack-based virtual machine. Every operation reads from and writes to a 256-bit wide stack. There are no registers.
+
 Transaction Bytecode
+
 ↓
+
 Program Counter (pc)
+
 ↓
+
 Opcode Dispatcher
+
 ↓
 ┌───────────────────────────────┐
 │  Stack  │  Memory  │ Storage  │
