@@ -70,12 +70,6 @@ Building this exposed the exact mechanism behind several vulnerability classes:
 - **Invalid jump destinations** — without JUMPDEST validation, an attacker could redirect execution flow into arbitrary bytecode positions
 - **Stack ordering bugs** — JUMPI operand order confusion is the same class of error that causes real arithmetic vulnerabilities in assembly/Yul code
 
-## Next Steps
-
-- [ ] Add CALLER, ORIGIN, CALLVALUE context opcodes
-- [ ] Implement CALL and DELEGATECALL to demonstrate proxy vulnerability mechanics
-- [ ] Add gas metering
-- [ ] Implement REVERT with return data
 
 ## Resources
 
