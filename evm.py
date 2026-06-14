@@ -11,6 +11,8 @@ class EVM:
         self.caller = caller    # msg.sender
         self.origin = origin    # tx.origin
         self.value = value      # msg.value
+        self.address = 0      # current contract address
+        self.contracts = {}   # simulated deployed contracts
 
     def push(self, value: int):
         self.stack.append(value)
@@ -135,6 +137,40 @@ class EVM:
         # CALLDATASIZE
         elif opcode == 0x36:
             self.push(len(self.calldata))  
+
+
+        # DELEGATECALL
+        elif opcode == 0xF4:
+            gas = self.pop()
+            addr = self.pop()
+            args_offset = self.pop()
+            args_size = self.pop()
+            ret_offset = self.pop()
+            ret_size = self.pop()
+
+            if addr not in self.contracts:
+                self.push(0)  # fail
+                return
+
+            # get the called contract's bytecode
+            called_bytecode = self.contracts[addr]
+
+            # run it in OUR context (our storage, our caller)
+            sub_evm = EVM(
+                called_bytecode,
+                caller=self.caller,   # original caller preserved
+                origin=self.origin,
+                value=self.value
+            )
+            sub_evm.storage = self.storage  # CRITICAL: share our storage
+            sub_evm.contracts = self.contracts
+
+            try:
+                sub_evm.run()
+                self.storage = sub_evm.storage  # changes affect OUR storage
+                self.push(1)  # success
+            except Exception:
+                self.push(0)  # fail
 
         else:
             raise Exception(f"Unknown opcode: {hex(opcode)} at pc={self.pc - 1}")
