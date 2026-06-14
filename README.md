@@ -20,11 +20,6 @@ Program Counter (pc)
 
 Opcode Dispatcher
 
-↓
-┌───────────────────────────────┐
-│  Stack  │  Memory  │ Storage  │
-│ (temp)  │  (temp)  │ (perm)   │
-└───────────────────────────────┘
 
 ## Opcodes Implemented
 
