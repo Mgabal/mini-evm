@@ -188,7 +188,61 @@ class TestEVM(unittest.TestCase):
         bytecode = bytes([0x36, 0x00])  # CALLDATASIZE, STOP
         evm = EVM(bytecode, calldata=calldata)
         evm.run()
-        self.assertEqual(evm.stack[0], 64)            
+        self.assertEqual(evm.stack[0], 64)   
+
+    def test_delegatecall_uses_caller_storage(self):
+        # Contract B: PUSH1 99, PUSH1 0, SSTORE, STOP
+        # Stores 99 at slot 0 — but in whose storage?
+        contract_b = bytes([
+            0x60, 0x63,  # PUSH1 99
+            0x60, 0x00,  # PUSH1 0 (slot)
+            0x55,        # SSTORE
+            0x00         # STOP
+        ])
+
+        # Contract A: DELEGATECALL to contract B
+        # DELEGATECALL: gas, addr, argsOffset, argsSize, retOffset, retSize
+        contract_a = bytes([
+            0x60, 0x00,  # PUSH1 0 (ret_size)
+            0x60, 0x00,  # PUSH1 0 (ret_offset)
+            0x60, 0x00,  # PUSH1 0 (args_size)
+            0x60, 0x00,  # PUSH1 0 (args_offset)
+            0x60, 0xBB,  # PUSH1 0xBB (address of contract B)
+            0x60, 0xFF,  # PUSH1 255 (gas)
+            0xF4,        # DELEGATECALL
+            0x00         # STOP
+        ])
+
+        evm = EVM(contract_a)
+        evm.contracts[0xBB] = contract_b
+        evm.run()
+
+        # storage slot 0 should be 99 in CONTRACT A's storage
+        self.assertEqual(evm.storage.get(0), 99)
+
+    def test_delegatecall_preserves_caller(self):
+        # Contract B pushes CALLER onto stack
+        contract_b = bytes([0x33, 0x00])  # CALLER, STOP
+
+        contract_a = bytes([
+            0x60, 0x00,
+            0x60, 0x00,
+            0x60, 0x00,
+            0x60, 0x00,
+            0x60, 0xBB,
+            0x60, 0xFF,
+            0xF4,        # DELEGATECALL
+            0x00
+        ])
+
+        original_caller = 0x1234
+        evm = EVM(contract_a, caller=original_caller)
+        evm.contracts[0xBB] = contract_b
+        evm.run()
+
+        # DELEGATECALL preserves original caller
+        # success flag (1) is on stack from DELEGATECALL
+        self.assertEqual(evm.stack[-1], 1)  # success         
 
 if __name__ == "__main__":
     unittest.main()
